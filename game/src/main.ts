@@ -169,7 +169,7 @@ function boot(isContinue: boolean): void {
   engine.start();
 
   if (import.meta.env.DEV) {
-    (window as unknown as { __debug: unknown }).__debug = { gameState, player, input, world, crafting, building };
+    (window as unknown as { __debug: unknown }).__debug = { gameState, player, input, world, crafting, building, interactions };
   }
 }
 

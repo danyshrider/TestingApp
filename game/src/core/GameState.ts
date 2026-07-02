@@ -38,6 +38,10 @@ export const DIFFICULTY_SETTINGS: Record<Difficulty, { drainMultiplier: number; 
 export class GameState {
   difficulty: Difficulty = 'survival';
 
+  get isCreative(): boolean {
+    return this.difficulty === 'creative';
+  }
+
   // Player transform (authoritative copy kept here for save/load; Player syncs each frame)
   position: [number, number, number] = [0, 0.5, 8];
   rotationY = 0;

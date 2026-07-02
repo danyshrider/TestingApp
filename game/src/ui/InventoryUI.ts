@@ -5,11 +5,16 @@ import { BuildingSystem } from '../systems/BuildingSystem';
 import { SurvivalSystem } from '../systems/SurvivalSystem';
 import { bus } from '../core/EventBus';
 import { audio } from '../core/AudioManager';
+import { ORE_SWATCH_COLORS } from '../world/OreMeshes';
 
 const ITEM_COLORS: Record<string, string> = {
   raw: '#8a9aa0', material: '#5fa0d0', food: '#e0a83e', water: '#4ab0d0',
   tool: '#c05fd0', equipment: '#55d68a', 'blueprint-fragment': '#e05fd0', 'base-part': '#a0805a', misc: '#8ee8ff',
 };
+
+function swatchColor(itemId: string, category: string): string {
+  return ORE_SWATCH_COLORS[itemId] ?? ITEM_COLORS[category] ?? '#8ee8ff';
+}
 
 export class InventoryUI {
   private overlay: HTMLDivElement;
@@ -116,7 +121,7 @@ export class InventoryUI {
       const stack = gameState.inventory[i];
       if (stack) {
         const def = ITEMS[stack.id];
-        slotEl.innerHTML = `<div class="swatch" style="background:${ITEM_COLORS[def?.category ?? 'misc']}"></div>${def?.name ?? stack.id}<span class="qty">${stack.qty > 1 ? stack.qty : ''}</span>`;
+        slotEl.innerHTML = `<div class="swatch" style="background:${swatchColor(stack.id, def?.category ?? 'misc')}"></div>${def?.name ?? stack.id}<span class="qty">${stack.qty > 1 ? stack.qty : ''}</span>`;
         slotEl.title = def?.description ?? '';
         slotEl.addEventListener('click', () => this.useItem(i));
       }
@@ -128,8 +133,15 @@ export class InventoryUI {
 
   private renderCraft(): HTMLElement {
     const frag = document.createElement('div');
-    const nearFab = this.building.nearestFabricatorInRange();
-    if (!nearFab) {
+    // Creative crafts anywhere for free; other modes need a fabricator in range.
+    const nearFab = gameState.isCreative || this.building.nearestFabricatorInRange();
+    if (gameState.isCreative) {
+      const note = document.createElement('div');
+      note.className = 'recipe-ing';
+      note.style.marginBottom = '10px';
+      note.textContent = 'Creative mode: all recipes unlocked, no materials or Fabricator needed.';
+      frag.appendChild(note);
+    } else if (!nearFab) {
       const warn = document.createElement('div');
       warn.className = 'recipe-ing';
       warn.style.marginBottom = '10px';
@@ -143,14 +155,14 @@ export class InventoryUI {
     list.className = 'recipe-list';
     for (const recipe of this.crafting.availableAt('fabricator')) {
       const unlocked = this.crafting.isUnlocked(recipe);
-      const hasItems = gameState.hasItems(recipe.ingredients);
+      const hasItems = gameState.isCreative || gameState.hasItems(recipe.ingredients);
       const row = document.createElement('div');
       row.className = `recipe-row ${unlocked ? '' : 'locked'}`;
       const ingText = recipe.ingredients.map((i) => `${ITEMS[i.id]?.name ?? i.id} x${i.qty}`).join(', ');
       row.innerHTML = `
         <div>
           <div>${recipe.name} ${unlocked ? '' : '(blueprint required)'}</div>
-          <div class="recipe-ing">${ingText}</div>
+          <div class="recipe-ing">${gameState.isCreative ? 'Free (creative)' : ingText}</div>
         </div>
         <button ${!unlocked || !hasItems || !nearFab ? 'disabled' : ''}>Craft</button>
       `;

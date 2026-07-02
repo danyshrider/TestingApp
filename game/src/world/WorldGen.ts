@@ -12,13 +12,14 @@ import { audio } from '../core/AudioManager';
 import { ScanningSystem } from '../systems/ScanningSystem';
 import { blueprintByScanTarget } from '../data/blueprints';
 import { bearingAndDistance } from '../core/Bearing';
+import { buildOreMesh } from './OreMeshes';
 
 const HARD_ORES = new Set(['diamond', 'kyanite', 'uraninite']);
 const RESPAWN_SECONDS = 90;
 const WRECK_TRACK_RANGE = 220;
 
 interface NodeVisual {
-  mesh: THREE.Mesh;
+  mesh: THREE.Object3D;
   depletedUntil: number;
 }
 
@@ -62,12 +63,11 @@ export class WorldGen {
       const itemId = biome.resourceTable[Math.floor(rng() * biome.resourceTable.length)];
       if (!itemId) continue;
       const pos = this.randomPointInBiome(biome, rng);
-      const geo = new THREE.IcosahedronGeometry(0.55 + rng() * 0.35, 0);
-      const color = new THREE.Color(ITEMS[itemId] ? nodeColor(itemId) : 0x999999);
-      const mat = new THREE.MeshStandardMaterial({ color, roughness: 0.6, flatShading: true });
-      const mesh = new THREE.Mesh(geo, mat);
-      mesh.position.copy(pos).add(new THREE.Vector3(0, 0.3, 0));
-      mesh.rotation.set(rng() * Math.PI, rng() * Math.PI, 0);
+      const mesh = buildOreMesh(itemId, rng);
+      mesh.position.copy(pos);
+      mesh.rotation.y = rng() * Math.PI * 2;
+      const scale = 0.8 + rng() * 0.5;
+      mesh.scale.setScalar(scale);
       this.engine.scene.add(mesh);
 
       const visual: NodeVisual = { mesh, depletedUntil: 0 };
@@ -223,16 +223,3 @@ export class WorldGen {
   }
 }
 
-function nodeColor(itemId: string): number {
-  const colors: Record<string, number> = {
-    quartz: 0xdfe8ea,
-    copper_ore: 0xc8703a,
-    titanium: 0x8ea0a8,
-    lithium: 0xb98ad6,
-    silver_ore: 0xd8d8e0,
-    diamond: 0xaeeaf0,
-    kyanite: 0xff8844,
-    uraninite: 0x8de05a,
-  };
-  return colors[itemId] ?? 0x999999;
-}

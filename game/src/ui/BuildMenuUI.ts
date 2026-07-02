@@ -35,7 +35,9 @@ export class BuildMenuUI {
     panel.className = 'panel';
     panel.innerHTML = `
       <h2>Base Construction</h2>
-      <p class="recipe-ing" style="margin-bottom:10px">Select a part (must be fabricated first), then place it in the world.</p>
+      <p class="recipe-ing" style="margin-bottom:10px">${gameState.isCreative
+        ? 'Creative mode: place any part freely.'
+        : 'Select a part (must be fabricated first), then place it in the world.'}</p>
       <div class="build-list"></div>
       <div class="panel-close-hint">[B] to close</div>
     `;
@@ -43,10 +45,11 @@ export class BuildMenuUI {
     const list = panel.querySelector('.build-list')!;
     for (const id of BASE_PART_IDS) {
       const count = gameState.countItem(id);
+      const placeable = gameState.isCreative || count > 0;
       const item = document.createElement('div');
       item.className = 'build-item';
-      item.innerHTML = `<div>${ITEMS[id].name}</div><div class="count">x${count}</div>`;
-      if (count > 0) {
+      item.innerHTML = `<div>${ITEMS[id].name}</div><div class="count">${gameState.isCreative ? 'free' : `x${count}`}</div>`;
+      if (placeable) {
         item.addEventListener('click', () => {
           this.building.enterBuildMode(id);
           this.close();

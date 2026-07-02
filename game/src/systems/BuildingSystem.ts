@@ -39,6 +39,7 @@ export class BuildingSystem {
   private ghostType: string | null = null;
   private ghostRotation = 0;
   buildModeActive = false;
+  private placeHeld = false;
   totalPower = 0;
   powerCapacity = 0;
   hullIntegrity = 100;
@@ -84,8 +85,12 @@ export class BuildingSystem {
       if (this.input.wasJustPressed('KeyE')) this.ghostRotation += Math.PI / 8;
       this.ghost.rotation.y = this.ghostRotation;
 
-      if (this.input.mouseDown) {
+      // Edge-trigger on the click so holding the button places exactly one part.
+      if (this.input.mouseDown && !this.placeHeld) {
+        this.placeHeld = true;
         this.confirmPlacement();
+      } else if (!this.input.mouseDown) {
+        this.placeHeld = false;
       }
       if (this.input.rightMouseDown) {
         this.exitBuildMode();
@@ -115,11 +120,13 @@ export class BuildingSystem {
 
   private confirmPlacement(): void {
     if (!this.ghost || !this.ghostType) return;
-    if (gameState.countItem(this.ghostType) <= 0) {
-      bus.emit('notify', { text: 'No parts of this type remaining', kind: 'warning' });
-      return;
+    if (!gameState.isCreative) {
+      if (gameState.countItem(this.ghostType) <= 0) {
+        bus.emit('notify', { text: 'No parts of this type remaining', kind: 'warning' });
+        return;
+      }
+      gameState.removeItem(this.ghostType, 1);
     }
-    gameState.removeItem(this.ghostType, 1);
     const part: PlacedBasePart = {
       id: `part_${Date.now()}_${Math.floor(Math.random() * 10000)}`,
       partType: this.ghostType,

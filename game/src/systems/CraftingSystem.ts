@@ -5,7 +5,9 @@ import { bus } from '../core/EventBus';
 import { audio } from '../core/AudioManager';
 
 export class CraftingSystem {
+  // Creative mode is a sandbox: every blueprint is known and materials are free.
   isUnlocked(recipe: RecipeDef): boolean {
+    if (gameState.isCreative) return true;
     return !recipe.unlockedBy || gameState.unlockedBlueprints.has(recipe.unlockedBy);
   }
 
@@ -14,13 +16,14 @@ export class CraftingSystem {
   }
 
   canCraft(recipe: RecipeDef): boolean {
+    if (gameState.isCreative) return true;
     return this.isUnlocked(recipe) && gameState.hasItems(recipe.ingredients);
   }
 
   craft(recipeId: string): boolean {
     const recipe = RECIPES.find((r) => r.id === recipeId);
     if (!recipe || !this.canCraft(recipe)) return false;
-    gameState.consumeItems(recipe.ingredients);
+    if (!gameState.isCreative) gameState.consumeItems(recipe.ingredients);
 
     if (recipe.result === 'vehicle_scout' || recipe.result === 'vehicle_cyclops') {
       bus.emit('spawn-vehicle', recipe.result);
