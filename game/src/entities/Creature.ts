@@ -1,25 +1,24 @@
 import * as THREE from 'three';
 import type { CreatureDef } from '../data/types';
+import { buildCreatureMesh } from './CreatureMeshes';
 
 export type CreatureState = 'patrol' | 'flee' | 'hunt' | 'attack';
 
 export class Creature {
-  mesh: THREE.Mesh;
+  mesh: THREE.Group;
   state: CreatureState = 'patrol';
   health: number;
   homePoint: THREE.Vector3;
   wanderTarget: THREE.Vector3;
   attackCooldown = 0;
   private wanderTimer = 0;
+  private swimPhase = Math.random() * Math.PI * 2;
 
   constructor(public def: CreatureDef, position: THREE.Vector3) {
     this.health = def.health;
     this.homePoint = position.clone();
     this.wanderTarget = position.clone();
-    const geo = new THREE.CapsuleGeometry(def.size * 0.4, def.size * 0.9, 4, 8);
-    const mat = new THREE.MeshStandardMaterial({ color: def.color, roughness: 0.55, flatShading: true });
-    this.mesh = new THREE.Mesh(geo, mat);
-    this.mesh.rotation.z = Math.PI / 2;
+    this.mesh = buildCreatureMesh(def.id, def.size, def.color);
     this.mesh.position.copy(position);
   }
 
@@ -83,6 +82,11 @@ export class Creature {
       const angle = Math.atan2(dir.x, dir.z);
       this.mesh.rotation.y = angle;
     }
+
+    // Tail wag scaled to how fast the creature is currently moving.
+    this.swimPhase += dt * (2 + speed * 1.5);
+    const tail = this.mesh.userData.tail as THREE.Object3D | undefined;
+    if (tail) tail.rotation.y = Math.sin(this.swimPhase) * 0.45;
 
     if (this.mesh.position.y < floorY + this.def.size * 0.4) {
       this.mesh.position.y = floorY + this.def.size * 0.4;

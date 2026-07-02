@@ -84,7 +84,7 @@ function boot(isContinue: boolean): void {
   const crafting = new CraftingSystem();
   const building = new BuildingSystem(engine, player, input, world);
   new VehicleSystem(engine, player, input, world, interactions);
-  new EcosystemSystem(engine, player, world, input, survival);
+  const ecosystem = new EcosystemSystem(engine, player, world, input, survival);
   const story = new StorySystem(engine, player);
   const beacons = new BeaconSystem(engine, player);
 
@@ -169,7 +169,7 @@ function boot(isContinue: boolean): void {
   engine.start();
 
   if (import.meta.env.DEV) {
-    (window as unknown as { __debug: unknown }).__debug = { gameState, player, input, world, crafting, building, interactions };
+    (window as unknown as { __debug: unknown }).__debug = { gameState, player, input, world, crafting, building, interactions, ecosystem };
   }
 }
 
