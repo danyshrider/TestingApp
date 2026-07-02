@@ -1,8 +1,15 @@
+// Notes used by the ambient music layer, in Hz (A minor pentatonic).
+const PAD_CHORD = [110, 164.81, 220]; // A2, E3, A3
+const BELL_SCALE = [440, 493.88, 587.33, 659.25, 880, 987.77];
+
 // All sound is synthesized via Web Audio (no external audio assets needed).
 export class AudioManager {
   private ctx: AudioContext | null = null;
   private ambientGain: GainNode | null = null;
   private masterGain: GainNode | null = null;
+  private musicGain: GainNode | null = null;
+  private padFilter: BiquadFilterNode | null = null;
+  private reverbSend: DelayNode | null = null;
 
   private ensureCtx(): AudioContext {
     if (!this.ctx) {
@@ -18,6 +25,7 @@ export class AudioManager {
     const ctx = this.ensureCtx();
     if (ctx.state === 'suspended') ctx.resume();
     if (!this.ambientGain) this.startAmbient();
+    if (!this.musicGain) this.startMusic();
   }
 
   private startAmbient(): void {
@@ -40,8 +48,98 @@ export class AudioManager {
     this.ambientGain = gain;
   }
 
+  // A slow, evolving oceanic pad plus occasional soft "bell" plucks - the
+  // ambient music bed, layered on top of the low pressure-hum drone above.
+  private startMusic(): void {
+    const ctx = this.ensureCtx();
+
+    this.musicGain = ctx.createGain();
+    this.musicGain.gain.value = 0.09;
+    this.musicGain.connect(this.masterGain!);
+
+    // Shared delay-based "reverb" send so the pad and bells feel spacious/underwater.
+    this.reverbSend = ctx.createDelay(1);
+    this.reverbSend.delayTime.value = 0.38;
+    const feedback = ctx.createGain();
+    feedback.gain.value = 0.34;
+    const wet = ctx.createGain();
+    wet.gain.value = 0.3;
+    this.reverbSend.connect(feedback);
+    feedback.connect(this.reverbSend);
+    this.reverbSend.connect(wet);
+    wet.connect(this.musicGain);
+
+    this.padFilter = ctx.createBiquadFilter();
+    this.padFilter.type = 'lowpass';
+    this.padFilter.frequency.value = 900;
+    this.padFilter.connect(this.musicGain);
+    this.padFilter.connect(this.reverbSend);
+
+    for (const freq of PAD_CHORD) {
+      const osc = ctx.createOscillator();
+      osc.type = 'triangle';
+      osc.frequency.value = freq;
+      const voiceGain = ctx.createGain();
+      voiceGain.gain.value = 0.22;
+      // Slow independent tremolo per note gives the pad a "breathing" swell.
+      const tremolo = ctx.createOscillator();
+      tremolo.frequency.value = 0.03 + Math.random() * 0.04;
+      const tremoloDepth = ctx.createGain();
+      tremoloDepth.gain.value = 0.12;
+      tremolo.connect(tremoloDepth);
+      tremoloDepth.connect(voiceGain.gain);
+      osc.connect(voiceGain);
+      voiceGain.connect(this.padFilter);
+      osc.start();
+      tremolo.start();
+    }
+
+    // Very slow filter drift so the pad's timbre never feels static.
+    const filterLfo = ctx.createOscillator();
+    filterLfo.frequency.value = 1 / 45;
+    const filterLfoGain = ctx.createGain();
+    filterLfoGain.gain.value = 300;
+    filterLfo.connect(filterLfoGain);
+    filterLfoGain.connect(this.padFilter.frequency);
+    filterLfo.start();
+
+    this.scheduleBell();
+  }
+
+  private scheduleBell(): void {
+    const delay = 4000 + Math.random() * 6000;
+    setTimeout(() => {
+      this.playBell();
+      this.scheduleBell();
+    }, delay);
+  }
+
+  private playBell(): void {
+    const ctx = this.ensureCtx();
+    if (!this.musicGain || !this.reverbSend) return;
+    const freq = BELL_SCALE[Math.floor(Math.random() * BELL_SCALE.length)];
+    const t0 = ctx.currentTime;
+    const osc = ctx.createOscillator();
+    osc.type = 'sine';
+    osc.frequency.value = freq;
+    const gain = ctx.createGain();
+    gain.gain.setValueAtTime(0.0001, t0);
+    gain.gain.exponentialRampToValueAtTime(0.09, t0 + 0.05);
+    gain.gain.exponentialRampToValueAtTime(0.0001, t0 + 3.2);
+    const panner = ctx.createStereoPanner();
+    panner.pan.value = Math.random() * 1.6 - 0.8;
+    osc.connect(gain);
+    gain.connect(panner);
+    panner.connect(this.musicGain);
+    panner.connect(this.reverbSend);
+    osc.start(t0);
+    osc.stop(t0 + 3.3);
+  }
+
   setAmbientDepthIntensity(depthFrac: number): void {
     if (this.ambientGain) this.ambientGain.gain.value = 0.04 + depthFrac * 0.08;
+    // Deeper water reads darker: the pad's filter cutoff closes as light fades.
+    if (this.padFilter) this.padFilter.frequency.value = 1100 - depthFrac * 700;
   }
 
   private blip(freq: number, duration: number, type: OscillatorType, gainValue: number, delay = 0): void {

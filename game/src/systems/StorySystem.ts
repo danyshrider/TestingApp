@@ -5,6 +5,7 @@ import { gameState } from '../core/GameState';
 import { LOGS, RADIO_SIGNALS } from '../data/logs';
 import { bus } from '../core/EventBus';
 import { audio } from '../core/AudioManager';
+import { bearingAndDistance } from '../core/Bearing';
 
 export interface TrackedSignal {
   id: string;
@@ -51,15 +52,7 @@ export class StorySystem {
   availableSignals(): TrackedSignal[] {
     const p = this.player.position;
     return RADIO_SIGNALS.filter((s) => gameState.discoveredSignals.has(s.id)).map((s) => {
-      const target = new THREE.Vector3(...s.position);
-      const flat = target.clone().sub(p);
-      const distance = flat.length();
-      flat.y = 0;
-      flat.normalize();
-      const worldAngle = Math.atan2(flat.x, flat.z);
-      let bearing = worldAngle - this.player.yaw + Math.PI;
-      bearing = ((bearing % (Math.PI * 2)) + Math.PI * 2) % (Math.PI * 2);
-      bearing -= Math.PI;
+      const { distance, bearing } = bearingAndDistance(p, this.player.yaw, new THREE.Vector3(...s.position));
       return { id: s.id, name: s.name, distance, bearing };
     });
   }

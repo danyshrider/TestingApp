@@ -11,16 +11,26 @@ import { bus } from '../core/EventBus';
 import { audio } from '../core/AudioManager';
 import { ScanningSystem } from '../systems/ScanningSystem';
 import { blueprintByScanTarget } from '../data/blueprints';
+import { bearingAndDistance } from '../core/Bearing';
 
 const HARD_ORES = new Set(['diamond', 'kyanite', 'uraninite']);
 const RESPAWN_SECONDS = 90;
+const WRECK_TRACK_RANGE = 220;
 
 interface NodeVisual {
   mesh: THREE.Mesh;
   depletedUntil: number;
 }
 
+interface WreckInstance {
+  scanTargetId: string;
+  isFragment: boolean;
+  object3d: THREE.Object3D;
+}
+
 export class WorldGen {
+  private wreckInstances: WreckInstance[] = [];
+
   constructor(
     private engine: Engine,
     private terrain: Terrain,
@@ -140,8 +150,13 @@ export class WorldGen {
   private spawnWrecks(): void {
     for (const site of WRECK_SITES) {
       const group = new THREE.Group();
-      group.position.set(...site.position);
       const isFragment = site.kind === 'fragment';
+      // Rest on the actual generated seafloor rather than the site's stored Y -
+      // terrain height is procedural and can drift from the hand-authored data,
+      // which otherwise leaves wrecks floating out of interaction range.
+      const restHeight = isFragment ? 0.6 : 1.4;
+      const floorY = this.terrain.heightAt(site.position[0], site.position[2]);
+      group.position.set(site.position[0], floorY + restHeight, site.position[2]);
       const bodyGeo = isFragment
         ? new THREE.BoxGeometry(1.2, 1, 1.4)
         : new THREE.BoxGeometry(5 + Math.random() * 3, 2.5, 3 + Math.random() * 2);
@@ -160,6 +175,7 @@ export class WorldGen {
       group.add(glow);
 
       this.engine.scene.add(group);
+      this.wreckInstances.push({ scanTargetId: site.scanTargetId, isFragment, object3d: group });
 
       this.interactions.register({
         id: site.scanTargetId,
@@ -185,6 +201,25 @@ export class WorldGen {
 
   private scanTimeFor(scanTargetId: string): number {
     return blueprintByScanTarget(scanTargetId)?.scanTimeSec ?? 5;
+  }
+
+  // Wrecks are visible landmarks even before they're scanned, so unlike radio
+  // signals (which require a log to unlock) any wreck within range shows up
+  // on the compass once you're close enough to have plausibly spotted it.
+  nearbyWrecks(playerPos: THREE.Vector3, playerYaw: number): { id: string; label: string; distance: number; bearing: number; scanned: boolean }[] {
+    const results: { id: string; label: string; distance: number; bearing: number; scanned: boolean }[] = [];
+    for (const wreck of this.wreckInstances) {
+      const { distance, bearing } = bearingAndDistance(playerPos, playerYaw, wreck.object3d.position);
+      if (distance > WRECK_TRACK_RANGE) continue;
+      results.push({
+        id: wreck.scanTargetId,
+        label: wreck.isFragment ? 'Fragment' : 'Wreck',
+        distance,
+        bearing,
+        scanned: this.scanning.isScanned(wreck.scanTargetId),
+      });
+    }
+    return results;
   }
 }
 

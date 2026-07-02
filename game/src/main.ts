@@ -75,7 +75,7 @@ function boot(isContinue: boolean): void {
   const story = new StorySystem(engine, player);
   const beacons = new BeaconSystem(engine, player);
 
-  const hud = new HUD(appRoot, player, world, interactions, story, beacons, building);
+  const hud = new HUD(appRoot, player, world, interactions, story, beacons, building, worldGen);
   const inventoryUI = new InventoryUI(appRoot, crafting, building, survival);
   const pdaUI = new PDAUI(appRoot, story, beacons);
   const buildMenuUI = new BuildMenuUI(appRoot, building);

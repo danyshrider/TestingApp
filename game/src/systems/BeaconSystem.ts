@@ -4,6 +4,7 @@ import { Player } from '../entities/Player';
 import { gameState } from '../core/GameState';
 import type { BeaconMarker } from '../core/GameState';
 import { bus } from '../core/EventBus';
+import { bearingAndDistance } from '../core/Bearing';
 
 const COLORS = ['#ff5555', '#55ff88', '#55aaff', '#ffdd55', '#ff55dd'];
 
@@ -54,15 +55,7 @@ export class BeaconSystem {
   bearingsAndDistances(): { id: string; label: string; color: string; distance: number; bearing: number }[] {
     const p = this.player.position;
     return gameState.beacons.map((b) => {
-      const target = new THREE.Vector3(...b.position);
-      const flat = target.clone().sub(p);
-      const distance = flat.length();
-      flat.y = 0;
-      flat.normalize();
-      const worldAngle = Math.atan2(flat.x, flat.z);
-      let bearing = worldAngle - this.player.yaw + Math.PI;
-      bearing = ((bearing % (Math.PI * 2)) + Math.PI * 2) % (Math.PI * 2);
-      bearing -= Math.PI;
+      const { distance, bearing } = bearingAndDistance(p, this.player.yaw, new THREE.Vector3(...b.position));
       return { id: b.id, label: b.label, color: b.color, distance, bearing };
     });
   }

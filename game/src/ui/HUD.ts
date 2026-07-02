@@ -5,6 +5,7 @@ import { InteractionSystem } from '../world/Interactables';
 import { StorySystem } from '../systems/StorySystem';
 import { BeaconSystem } from '../systems/BeaconSystem';
 import { BuildingSystem } from '../systems/BuildingSystem';
+import { WorldGen } from '../world/WorldGen';
 import { ITEMS } from '../data/items';
 
 export class HUD {
@@ -34,6 +35,7 @@ export class HUD {
     private story: StorySystem,
     private beacons: BeaconSystem,
     private building: BuildingSystem,
+    private worldGen: WorldGen,
   ) {
     this.root = document.createElement('div');
     this.root.id = 'hud';
@@ -111,31 +113,37 @@ export class HUD {
     this.buildHint.classList.toggle('hidden', !this.building.buildModeActive);
   }
 
+  private readonly compassFOV = Math.PI * 0.9;
+  private readonly compassWidth = 340;
+  private compassRows: number[][] = [];
+
+  private addCompassMarker(bearing: number, distance: number, label: string, color: string): void {
+    if (Math.abs(bearing) > this.compassFOV / 2) return;
+    const x = this.compassWidth / 2 + (bearing / (this.compassFOV / 2)) * (this.compassWidth / 2);
+    // Stack markers that land close together instead of letting their labels overlap.
+    let row = 0;
+    while (this.compassRows[row]?.some((usedX) => Math.abs(usedX - x) < 95)) row++;
+    (this.compassRows[row] ??= []).push(x);
+    const el = document.createElement('div');
+    el.className = 'compass-marker';
+    el.style.left = `${x}px`;
+    el.style.top = `${row * 18}px`;
+    el.style.color = color;
+    el.textContent = `${label} ${Math.round(distance)}m`;
+    this.compass.appendChild(el);
+  }
+
   private updateCompass(): void {
     this.compass.innerHTML = '';
-    const signals = this.story.availableSignals();
-    const beaconList = this.beacons.bearingsAndDistances();
-    const FOV = Math.PI * 0.9;
-    const width = 340;
-    for (const s of signals) {
-      if (Math.abs(s.bearing) > FOV / 2) continue;
-      const x = width / 2 + (s.bearing / (FOV / 2)) * (width / 2);
-      const el = document.createElement('div');
-      el.className = 'compass-marker';
-      el.style.left = `${x}px`;
-      el.style.color = '#8ee8ff';
-      el.textContent = `${s.name} ${Math.round(s.distance)}m`;
-      this.compass.appendChild(el);
+    this.compassRows = [];
+    for (const s of this.story.availableSignals()) {
+      this.addCompassMarker(s.bearing, s.distance, s.name, '#8ee8ff');
     }
-    for (const b of beaconList) {
-      if (Math.abs(b.bearing) > FOV / 2) continue;
-      const x = width / 2 + (b.bearing / (FOV / 2)) * (width / 2);
-      const el = document.createElement('div');
-      el.className = 'compass-marker';
-      el.style.left = `${x}px`;
-      el.style.color = b.color;
-      el.textContent = `${b.label} ${Math.round(b.distance)}m`;
-      this.compass.appendChild(el);
+    for (const b of this.beacons.bearingsAndDistances()) {
+      this.addCompassMarker(b.bearing, b.distance, b.label, b.color);
+    }
+    for (const w of this.worldGen.nearbyWrecks(this.player.position, this.player.yaw)) {
+      this.addCompassMarker(w.bearing, w.distance, w.label, w.scanned ? '#7a8890' : '#f2a53e');
     }
   }
 
