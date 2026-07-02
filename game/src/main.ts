@@ -47,6 +47,13 @@ function grantStartingKit(): void {
     position: [3, -1.2, 6],
     rotationY: 0,
   });
+  // Permanent home marker so the starting fabricator is always findable.
+  gameState.beacons.push({
+    id: 'beacon_lifepod',
+    label: 'Life Pod',
+    color: '#ffb400',
+    position: [3, -1.2, 6],
+  });
 }
 
 function boot(isContinue: boolean): void {
@@ -54,6 +61,12 @@ function boot(isContinue: boolean): void {
   started = true;
 
   if (!isContinue) grantStartingKit();
+
+  // Older saves predate the Life Pod home beacon - patch it in.
+  const lifepod = gameState.basePieces.find((p) => p.id === 'lifepod_fabricator');
+  if (lifepod && !gameState.beacons.some((b) => b.id === 'beacon_lifepod')) {
+    gameState.beacons.push({ id: 'beacon_lifepod', label: 'Life Pod', color: '#ffb400', position: lifepod.position });
+  }
 
   const engine = new Engine(viewport);
   const input = new InputManager(viewport);

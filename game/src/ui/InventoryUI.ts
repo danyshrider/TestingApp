@@ -133,7 +133,10 @@ export class InventoryUI {
       const warn = document.createElement('div');
       warn.className = 'recipe-ing';
       warn.style.marginBottom = '10px';
-      warn.textContent = 'No Fabricator in range — build or find one to craft.';
+      const dist = this.building.distanceToNearestFabricator();
+      warn.textContent = dist !== null
+        ? `No Fabricator in range — nearest is ${Math.round(dist)}m away (your Life Pod: follow the amber beacon on the compass).`
+        : 'No Fabricator in range — build or find one to craft.';
       frag.appendChild(warn);
     }
     const list = document.createElement('div');

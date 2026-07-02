@@ -133,6 +133,10 @@ export class BuildingSystem {
   }
 
   private spawnMesh(part: PlacedBasePart): void {
+    if (part.id === 'lifepod_fabricator') {
+      this.spawnLifePod(part);
+      return;
+    }
     const geo = PART_GEOMETRY[part.partType]?.() ?? new THREE.BoxGeometry(1, 1, 1);
     const mat = new THREE.MeshStandardMaterial({ color: PART_COLOR[part.partType] ?? 0xffffff, roughness: 0.5, metalness: 0.2 });
     const mesh = new THREE.Mesh(geo, mat);
@@ -140,6 +144,35 @@ export class BuildingSystem {
     mesh.rotation.y = part.rotationY;
     this.engine.scene.add(mesh);
     this.parts.set(part.id, mesh);
+  }
+
+  // The starting life pod doubles as the player's first fabricator, so it
+  // needs to read as a landmark: bright orange capsule with a light, not the
+  // generic grey fabricator box.
+  private spawnLifePod(part: PlacedBasePart): void {
+    const group = new THREE.Group();
+    group.position.set(...part.position);
+    const hull = new THREE.Mesh(
+      new THREE.CapsuleGeometry(1.4, 1.6, 6, 14),
+      new THREE.MeshStandardMaterial({ color: 0xe8622a, roughness: 0.45, metalness: 0.25 }),
+    );
+    group.add(hull);
+    const stripe = new THREE.Mesh(
+      new THREE.CylinderGeometry(1.45, 1.45, 0.35, 14),
+      new THREE.MeshStandardMaterial({ color: 0xf5f0e6, roughness: 0.5 }),
+    );
+    group.add(stripe);
+    const beaconLight = new THREE.Mesh(
+      new THREE.SphereGeometry(0.22, 10, 10),
+      new THREE.MeshStandardMaterial({ color: 0xffb400, emissive: 0xffb400, emissiveIntensity: 1.4 }),
+    );
+    beaconLight.position.y = 2.1;
+    group.add(beaconLight);
+    const light = new THREE.PointLight(0xffb400, 1.4, 26);
+    light.position.y = 2.1;
+    group.add(light);
+    this.engine.scene.add(group);
+    this.parts.set(part.id, group);
   }
 
   private recomputePower(): void {
@@ -181,10 +214,19 @@ export class BuildingSystem {
     }
   }
 
-  nearestFabricatorInRange(range = 8): boolean {
-    return gameState.basePieces.some(
-      (p) => p.partType === 'base_fabricator' && this.player.position.distanceTo(new THREE.Vector3(...p.position)) < range,
-    );
+  nearestFabricatorInRange(range = 14): boolean {
+    const d = this.distanceToNearestFabricator();
+    return d !== null && d < range;
+  }
+
+  distanceToNearestFabricator(): number | null {
+    let best: number | null = null;
+    for (const p of gameState.basePieces) {
+      if (p.partType !== 'base_fabricator') continue;
+      const d = this.player.position.distanceTo(new THREE.Vector3(...p.position));
+      if (best === null || d < best) best = d;
+    }
+    return best;
   }
 
   storageCapacityBonus(): number {
