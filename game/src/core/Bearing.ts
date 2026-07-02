@@ -13,8 +13,11 @@ export function bearingAndDistance(
   flat.y = 0;
   flat.normalize();
   const worldAngle = Math.atan2(flat.x, flat.z);
-  let bearing = worldAngle - playerYaw + Math.PI;
+  // The camera faces world -Z at yaw 0, i.e. its forward direction sits at
+  // world angle (yaw + PI). Positive bearing must mean "to my right" in view
+  // space, which flips the sign since yaw increases counter-clockwise.
+  let bearing = playerYaw + Math.PI - worldAngle;
   bearing = ((bearing % (Math.PI * 2)) + Math.PI * 2) % (Math.PI * 2);
-  bearing -= Math.PI;
+  if (bearing > Math.PI) bearing -= Math.PI * 2;
   return { distance, bearing };
 }
